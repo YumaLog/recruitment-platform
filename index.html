@@ -210,6 +210,21 @@ section{padding:96px 0;position:relative}
 .job-perks li svg{flex:none;width:18px;height:18px;margin-top:2px;fill:none;stroke:var(--gold-2);stroke-width:2.4}
 .job-body .btn{margin-top:auto;width:100%}
 .empty-jobs{grid-column:1/-1;text-align:center;color:var(--gray);padding:60px 20px;border:1px dashed var(--line-gold);border-radius:20px}
+
+/* ---- categorii fara joburi: butoane compacte ---- */
+.cat-alert{margin-top:34px;padding:26px 24px;border-radius:20px;
+  background:linear-gradient(180deg,rgba(201,150,46,.055),rgba(22,22,27,.4));
+  border:1px dashed rgba(201,150,46,.36)}
+.cat-alert .ca-head h3{font-family:"Archivo",sans-serif;font-weight:800;font-size:19px;margin-bottom:5px}
+.cat-alert .ca-head p{color:var(--gray);font-size:14px;margin-bottom:16px;max-width:520px}
+.cat-btns{display:flex;flex-wrap:wrap;gap:9px}
+.cat-btn{display:inline-flex;align-items:center;gap:9px;font-family:"Archivo",sans-serif;font-weight:700;
+  font-size:13.5px;color:#d8d8e0;background:var(--card);border:1px solid var(--line);
+  border-radius:999px;padding:10px 16px;text-decoration:none;transition:.22s}
+.cat-btn span{display:grid;place-items:center;width:18px;height:18px;border-radius:50%;
+  background:rgba(201,150,46,.14);color:var(--gold-2);font-size:14px;line-height:1}
+.cat-btn:hover{border-color:var(--line-gold);color:var(--gold-2);transform:translateY(-2px)}
+@media(max-width:560px){.cat-alert{padding:20px 16px}.cat-btn{font-size:12.5px;padding:9px 13px}}
 .empty-cat{text-align:center;color:var(--gray);padding:48px 20px;border:1px dashed var(--line-gold);border-radius:20px;font-size:16px}
 
 /* FEATURES */
@@ -976,22 +991,57 @@ footer .fl a:hover{color:var(--gold-2)}
     ensureJobModal();
     const defaultCats = ["Șoferi Cat. B","Șoferi Cat. C","Șoferi Cat. C+E","Construcții","Depozit & Logistică","Producție","HoReCa","Agricultură","Curățenie","Îngrijire & Medical"];
     const cats = (typeof CONFIG!=='undefined' && Array.isArray(CONFIG.categories) && CONFIG.categories.length) ? CONFIG.categories : defaultCats;
+    // Potrivește denumiri diferite ale aceleiași categorii.
+    // Ex: "Categoria C+E", "C+E", "Cat CE" -> "Șoferi Cat. C+E"
+    function normCat(raw, lista){
+      var c = String(raw||'').trim();
+      if(!c) return 'Altele';
+      var exact = lista.filter(function(x){ return x.toLowerCase()===c.toLowerCase(); })[0];
+      if(exact) return exact;
+      var k = c.toLowerCase()
+        .replace(/[ăâ]/g,'a').replace(/[îi]/g,'i').replace(/[șş]/g,'s').replace(/[țţ]/g,'t')
+        .replace(/categoria|categoria de|cat\.?|soferi|sofer/g,'')
+        .replace(/[^a-z0-9+]/g,'');
+      var harta = [
+        [/^(c\+e|ce)$/, 'Șoferi Cat. C+E'],
+        [/^c$/,          'Șoferi Cat. C'],
+        [/^b$/,          'Șoferi Cat. B'],
+        [/^d$/,          'Șoferi Cat. D']
+      ];
+      for(var i=0;i<harta.length;i++){ if(harta[i][0].test(k)) {
+        var t = lista.filter(function(x){ return x===harta[i][1]; })[0];
+        if(t) return t;
+      }}
+      // potrivire după cuvinte-cheie (construcții, depozit, horeca etc.)
+      var gasit = lista.filter(function(x){
+        var xk = x.toLowerCase().replace(/[ăâ]/g,'a').replace(/[îi]/g,'i')
+                  .replace(/[șş]/g,'s').replace(/[țţ]/g,'t').replace(/[^a-z0-9+]/g,'');
+        return xk && k && (xk.indexOf(k)>-1 || k.indexOf(xk)>-1);
+      })[0];
+      return gasit || c;
+    }
+
     const byCat = {};
-    active.forEach(j=>{ const c=(j.category||'Altele'); (byCat[c]=byCat[c]||[]).push(j); });
+    active.forEach(j=>{
+      const c = normCat(j.category, cats);
+      (byCat[c]=byCat[c]||[]).push(j);
+    });
     const ordered = cats.slice();
     Object.keys(byCat).forEach(c=>{ if(ordered.indexOf(c)===-1) ordered.push(c); });
 
     if (!active.length){
       cont.innerHTML = '<div class="empty-jobs">Momentan nu sunt joburi active. Revino curând!</div>';
     } else {
-      cont.innerHTML = ordered.map(cat=>{
+      const cuJoburi = ordered.filter(c => (byCat[c]||[]).length);
+      const fara      = ordered.filter(c => !(byCat[c]||[]).length);
+
+      cont.innerHTML = cuJoburi.map(cat=>{
         const items = byCat[cat] || [];
-        const inner = items.length ? items.map(jobCardHTML).join('') : emptyRowHTML(cat);
         return `<div class="cat-row reveal">
           <div class="row-head"><h3>${esc(cat)}</h3><span class="cnt">${items.length}</span></div>
-          <div class="strip-wrap"><div class="edge l"></div><div class="edge r"></div><div class="strip">${inner}</div></div>
+          <div class="strip-wrap"><div class="edge l"></div><div class="edge r"></div><div class="strip">${items.map(jobCardHTML).join('')}</div></div>
         </div>`;
-      }).join('');
+      }).join('') + (fara.length ? alertaCatHTML(fara) : '');
       cont.querySelectorAll('.jcard[data-id]').forEach(card=>{
         card.addEventListener('click', ()=> openJobModal(active.find(j=>String(j.id)===card.dataset.id)));
       });
@@ -1030,6 +1080,19 @@ footer .fl a:hover{color:var(--gold-2)}
       +(badges?'<div class="wj-badges">'+badges+'</div>':'')
       +'<div class="wj-cta">Atinge pentru detalii <span class="arr">&rarr;</span></div>'
       +'</div>';
+  }
+
+  function alertaCatHTML(lista){
+    var btns = lista.map(function(cat){
+      var subj=encodeURIComponent('Vreau s\u0103 fiu anun\u021bat \u2014 '+cat);
+      var body=encodeURIComponent('Bun\u0103 ziua,\n\nA\u0219 dori s\u0103 fiu anun\u021bat(\u0103) c\u00e2nd apar locuri de munc\u0103 \u00een categoria \u201e'+cat+'\u201d.\n\nNume:\nTelefon:\nOra\u0219:\nExperien\u021b\u0103:\n');
+      return '<a class="cat-btn" href="mailto:support@wejobs.ro?subject='+subj+'&body='+body+'">'
+        +esc(cat)+'<span>+</span></a>';
+    }).join('');
+    return '<div class="cat-alert reveal">'
+      +'<div class="ca-head"><h3>Nu g\u0103se\u0219ti ce cau\u021bi?</h3>'
+      +'<p>Alege categoria care te intereseaz\u0103 \u0219i te anun\u021b\u0103m primul c\u00e2nd apar posturi.</p></div>'
+      +'<div class="cat-btns">'+btns+'</div></div>';
   }
 
   function emptyRowHTML(cat){
@@ -1807,9 +1870,9 @@ html.wj-loading,html.wj-loading body{overflow:hidden!important}
 
   if(reduce){ deschide(); return; }
   docEl.classList.add('wj-loading');
-  setTimeout(function(){ if(docEl.classList.contains('wj-loading')) deschide(); },4000); // plasa de siguranta
+  setTimeout(function(){ if(docEl.classList.contains('wj-loading')) deschide(); },1600); // plasa de siguranta
 
-  window.addEventListener('load',function(){
+  function porneste(){
     if(typeof gsap==='undefined'||typeof ScrollTrigger==='undefined'){ deschide(); return; }
     gsap.registerPlugin(ScrollTrigger);
 
@@ -1841,20 +1904,20 @@ html.wj-loading,html.wj-loading body{overflow:hidden!important}
     var cuvH1=masca(h1);
     var tl=gsap.timeline();
 
-    tl.to('#wj-curtain .c-logo',{opacity:1,duration:.5,ease:'power2.out'})
-      .to('#wj-curtain .c-line',{width:'118%',duration:.7,ease:'power2.inOut'},'-=.15')
-      .to('#wj-curtain .c-sub',{opacity:1,duration:.45},'-=.45')
-      .to('#wj-curtain .c-logo, #wj-curtain .c-sub',{opacity:0,duration:.4,ease:'power2.in'},'+=.35')
-      .to('#wj-curtain .panel.top',{yPercent:-100,duration:.95,ease:'expo.inOut'},'-=.1')
-      .to('#wj-curtain .panel.bot',{yPercent:100,duration:.95,ease:'expo.inOut'},'<')
-      .add(function(){ docEl.classList.remove('wj-loading'); },'-=.6')
-      .from(cuvH1,{yPercent:118,duration:1,stagger:.07,ease:'power4.out'},'-=.55')
-      .from('.hero .eyebrow',{y:14,opacity:0,duration:.6},'-=.85')
-      .from('.hero .slogan',{y:20,opacity:0,duration:.7},'-=.6')
-      .from('.hero .lead',{y:20,opacity:0,duration:.7},'-=.55')
-      .from('.hero-actions .btn',{y:18,opacity:0,duration:.6,stagger:.08},'-=.5')
-      .from('.hero-trust .chip',{y:14,opacity:0,scale:.94,duration:.5,stagger:.07},'-=.45')
-      .from('.hero-visual',{scale:.93,opacity:0,duration:1.3,ease:'power3.out'},'-=1.5')
+    tl.to('#wj-curtain .c-logo',{opacity:1,duration:.24,ease:'power2.out'})
+      .to('#wj-curtain .c-line',{width:'118%',duration:.32,ease:'power2.inOut'},'-=.1')
+      .to('#wj-curtain .c-sub',{opacity:1,duration:.18},'-=.22')
+      .to('#wj-curtain .c-logo, #wj-curtain .c-sub',{opacity:0,duration:.18,ease:'power2.in'},'+=.06')
+      .to('#wj-curtain .panel.top',{yPercent:-100,duration:.46,ease:'expo.inOut'},'-=.05')
+      .to('#wj-curtain .panel.bot',{yPercent:100,duration:.46,ease:'expo.inOut'},'<')
+      .add(function(){ docEl.classList.remove('wj-loading'); },'-=.4')
+      .from(cuvH1,{yPercent:118,duration:.6,stagger:.04,ease:'power4.out'},'-=.32')
+      .from('.hero .eyebrow',{y:12,opacity:0,duration:.32},'-=.48')
+      .from('.hero .slogan',{y:14,opacity:0,duration:.36},'-=.32')
+      .from('.hero .lead',{y:14,opacity:0,duration:.36},'-=.28')
+      .from('.hero-actions .btn',{y:12,opacity:0,duration:.32,stagger:.045},'-=.26')
+      .from('.hero-trust .chip',{y:10,opacity:0,scale:.96,duration:.28,stagger:.04},'-=.24')
+      .from('.hero-visual',{scale:.96,opacity:0,duration:.66,ease:'power3.out'},'-=.8')
       .add(function(){ var c=document.getElementById('wj-curtain'); if(c) c.remove(); });
 
     // arcurile hartii se deseneaza
@@ -1862,11 +1925,11 @@ html.wj-loading,html.wj-loading body{overflow:hidden!important}
       try{
         var L=p.getTotalLength();
         gsap.set(p,{strokeDasharray:L,strokeDashoffset:L});
-        gsap.to(p,{strokeDashoffset:0,duration:1.7,delay:1.9+i*.045,ease:'power2.inOut'});
+        gsap.to(p,{strokeDashoffset:0,duration:.95,delay:.5+i*.018,ease:'power2.inOut'});
       }catch(e){}
     });
-    gsap.from('.eu-dot',{scale:0,opacity:0,duration:.5,delay:2.5,stagger:.035,transformOrigin:'center'});
-    gsap.from('.tagchip',{y:18,opacity:0,duration:.7,delay:3.1});
+    gsap.from('.eu-dot',{scale:0,opacity:0,duration:.32,delay:.85,stagger:.018,transformOrigin:'center'});
+    gsap.from('.tagchip',{y:14,opacity:0,duration:.4,delay:1.1});
 
     /* ---------- 3. bara de progres ---------- */
     var bara=document.getElementById('wj-prog');
@@ -1933,7 +1996,7 @@ html.wj-loading,html.wj-loading body{overflow:hidden!important}
           scrollTrigger:{trigger:r,start:'top 88%',once:true}});
       });
       ScrollTrigger.refresh();
-    },1400);
+    },600);
 
     /* ---------- 10. inclinare 3D la hover pe carduri ---------- */
     if(!mobile){
@@ -1986,9 +2049,11 @@ html.wj-loading,html.wj-loading body{overflow:hidden!important}
       });
     }
     addEventListener('scroll',salveazaVizibilitatea,{passive:true});
-    setTimeout(function(){ ScrollTrigger.refresh(); salveazaVizibilitatea(); },2200);
-    setTimeout(salveazaVizibilitatea,4000);
-  });
+    setTimeout(function(){ ScrollTrigger.refresh(); salveazaVizibilitatea(); },1200);
+    setTimeout(salveazaVizibilitatea,2200);
+  }
+  if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded',porneste); }
+  else { porneste(); }
 })();
 </script>
 <!-- ═══════════════ SFÂRȘIT STRAT CINEMATIC ═══════════════ -->
