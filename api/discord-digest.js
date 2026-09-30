@@ -1,5 +1,5 @@
 // api/discord-digest.js — Vercel Serverless Function, rulată de Vercel Cron
-// (vezi vercel.json: în fiecare dimineață) sau manual din browser.
+// (vezi vercel.json: la fiecare oră, la fix) sau manual din browser.
 //
 // Ce face: ia aplicațiile NOI (is_read = false și încă netrimise pe Discord),
 // trimite câte un mesaj (embed) pentru fiecare pe webhook-ul canalului
@@ -177,12 +177,26 @@ module.exports = async (req, res) => {
   let posted = 0, marked = 0;
   const errors = [];
   for (const a of rows) {
+    // Rulează din două locuri (cronul Vercel la fix, agentul Yuma Sync la și
+    // jumătate, plus „Rulează acum"): întâi se REVENDICĂ aplicația (doar cine
+    // găsește discord_notified_at încă gol o ia), apoi se postează. Dacă
+    // postarea pică, revendicarea se retrage și rămâne pentru rularea următoare.
+    const claim = await supabase(SUPABASE_URL, SERVICE_KEY, `applications?id=eq.${encodeURIComponent(a.id)}&discord_notified_at=is.null&select=id`, {
+      method: "PATCH", headers: { Prefer: "return=representation" },
+      body: JSON.stringify({ discord_notified_at: new Date().toISOString() }),
+    });
+    const won = claim.ok ? await claim.json().then((r) => Array.isArray(r) && r.length > 0).catch(() => false) : false;
+    if (!won) continue;                                               // a luat-o deja cealaltă rulare
     const sent = await postDiscord(WEBHOOK, { username: "WeJobs.ro", embeds: [embedFor(a, ADMIN_URL)], allowed_mentions: { parse: [] } });
-    if (!sent.ok) { errors.push(`${a.id}: ${sent.error}`); break; }   // nu insistăm: mâine se reia de unde a rămas
+    if (!sent.ok) {
+      await supabase(SUPABASE_URL, SERVICE_KEY, `applications?id=eq.${encodeURIComponent(a.id)}`, {
+        method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ discord_notified_at: null }),
+      });
+      errors.push(`${a.id}: ${sent.error}`); break;                     // nu insistăm: se reia la ora următoare
+    }
     posted += 1;
-    const patch = await supabase(SUPABASE_URL, SERVICE_KEY, `applications?id=eq.${encodeURIComponent(a.id)}&discord_notified_at=is.null`, {
-      method: "PATCH", headers: { Prefer: "return=minimal" },
-      body: JSON.stringify({ discord_notified_at: new Date().toISOString(), is_read: true }),
+    const patch = await supabase(SUPABASE_URL, SERVICE_KEY, `applications?id=eq.${encodeURIComponent(a.id)}`, {
+      method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ is_read: true }),
     });
     if (patch.ok) marked += 1; else errors.push(`${a.id}: marcare eșuată (HTTP ${patch.status})`);
     await sleep(400);
