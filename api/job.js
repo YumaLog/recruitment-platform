@@ -49,7 +49,10 @@ function head(title, desc, canonical, image, jsonld) {
 <meta property="og:url" content="${esc(canonical)}"/>
 <meta property="og:image" content="${esc(image)}"/>
 <meta name="twitter:card" content="summary_large_image"/>
-<link rel="icon" type="image/png" href="/assets/images/logo-wejobs-header.png"/>
+<link rel="icon" href="/favicon.ico" sizes="any"/>
+<link rel="icon" type="image/png" sizes="48x48" href="/assets/images/favicon-48.png"/>
+<link rel="icon" type="image/png" sizes="192x192" href="/assets/images/favicon-192.png"/>
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/images/apple-touch-icon.png"/>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=Fraunces:ital,opsz,wght@1,9..144,400..600&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
