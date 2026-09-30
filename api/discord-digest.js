@@ -176,6 +176,7 @@ module.exports = async (req, res) => {
 
   let posted = 0, marked = 0;
   const errors = [];
+  const trimise = [];   // pentru notificarea managerului: cine și la ce a aplicat
   for (const a of rows) {
     // Rulează din două locuri (cronul Vercel la fix, agentul Yuma Sync la și
     // jumătate, plus „Rulează acum"): întâi se REVENDICĂ aplicația (doar cine
@@ -195,12 +196,39 @@ module.exports = async (req, res) => {
       errors.push(`${a.id}: ${sent.error}`); break;                     // nu insistăm: se reia la ora următoare
     }
     posted += 1;
+    trimise.push({ name: String(a.name || "").trim(), job_title: String(a.job_title || "").trim() });
     const patch = await supabase(SUPABASE_URL, SERVICE_KEY, `applications?id=eq.${encodeURIComponent(a.id)}`, {
       method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ is_read: true }),
     });
     if (patch.ok) marked += 1; else errors.push(`${a.id}: marcare eșuată (HTTP ${patch.status})`);
     await sleep(400);
   }
-  console.log(`[discord-digest] pending=${rows.length} posted=${posted} marked=${marked} errors=${errors.length}`);
-  return json(res, 200, { ok: errors.length === 0, pending: rows.length, posted, marked, errors });
+  // Managerul află pe telefon, prin Yuma Control, câte aplicații au plecat și
+  // la ce job — indiferent dacă a rulat cronul Vercel sau agentul Yuma Sync.
+  const notificat = posted > 0 ? await notifyYuma(trimise, errors) : null;
+  console.log(`[discord-digest] pending=${rows.length} posted=${posted} marked=${marked} errors=${errors.length} notificat=${notificat}`);
+  return json(res, 200, { ok: errors.length === 0, pending: rows.length, posted, marked, errors, trimise, notificat });
 };
+
+async function notifyYuma(trimise, errors) {
+  const url = env("YUMA_NOTIFY_URL", "https://mentor-driver-dashboard-app.vercel.app/api/wejobs/notify");
+  const secret = env("YUMA_NOTIFY_SECRET");
+  if (!secret) return "fara YUMA_NOTIFY_SECRET";
+  const n = trimise.length;
+  const title = `WeJobs: ${n === 1 ? "1 aplicație nouă" : `${n} aplicații noi`} pe Discord`;
+  const lines = trimise.slice(0, 5).map((t) => `${t.name || "fără nume"} — ${t.job_title || "job nespecificat"}`);
+  if (n > 5) lines.push(`… și încă ${n - 5}`);
+  if (errors.length) lines.push(`⚠ ${errors.length} ${errors.length === 1 ? "eroare" : "erori"} la trimitere`);
+  try {
+    const r = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + secret },
+      body: JSON.stringify({ title, body: lines.join("\n"), url: "/admin/sync-agent", tag: "wejobs-discord" }),
+      signal: AbortSignal.timeout(15000),
+    });
+    const j = await r.json().catch(() => ({}));
+    return r.ok && j.ok ? `da (${j.sent} dispozitive)` : `nu (HTTP ${r.status} ${j.error || ""})`.trim();
+  } catch (e) {
+    return `nu (${e && e.message ? e.message : e})`;
+  }
+}
