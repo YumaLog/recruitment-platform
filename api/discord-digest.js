@@ -1,5 +1,5 @@
 // api/discord-digest.js — Vercel Serverless Function, rulată de Vercel Cron
-// (vezi vercel.json: la fiecare oră, la fix) sau manual din browser.
+// (vezi vercel.json: la fiecare două ore, la fix) sau manual din browser.
 //
 // Ce face: ia aplicațiile NOI (is_read = false și încă netrimise pe Discord),
 // trimite câte un mesaj (embed) pentru fiecare pe webhook-ul canalului
