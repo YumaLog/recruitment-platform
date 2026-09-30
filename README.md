@@ -9,8 +9,8 @@ Deploy: Vercel `yuma18/recruitment-platform` (domeniul www.wejobs.ro).
   după trimitere. Diagnostic fără secrete: `GET https://www.wejobs.ro/api/notify`
   arată ce variabile lipsesc și câte telefoane sunt abonate. Are nevoie de
   `VAPID_PUBLIC`, `VAPID_PRIVATE`, `VAPID_SUBJECT`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`.
-- **Discord, la fiecare oră:** `api/discord-digest.js`, pornit de Vercel Cron
-  (`vercel.json`, la fix) și de agentul Yuma Sync (la și jumătate). Ia aplicațiile
+- **Discord, la fiecare două ore:** `api/discord-digest.js`, pornit de Vercel Cron
+  (`vercel.json`, orele pare la fix) și de agentul Yuma Sync (orele pare și jumătate). Ia aplicațiile
   NOI (necitite și netrimise), le revendică una câte una (fără dubluri), postează
   câte un mesaj pe webhook-ul canalului de recrutare și le marchează citite
   (`is_read`, `discord_notified_at`). Statusul (nou/acceptat/respins) nu se atinge;
