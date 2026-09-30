@@ -792,7 +792,7 @@ footer .fl a:hover{color:var(--gold-2)}
         <label for="post">Post dorit</label>
         <select id="post" name="post_dorit" required><option value="">Alege postul</option></select>
         <div class="form-row">
-          <div><label for="nastere">Data nașterii</label><input id="nastere" type="date" name="nastere" required></div>
+          <div><label for="nastere">Data nașterii</label><input id="nastere" type="text" name="nastere" inputmode="numeric" autocomplete="bday" placeholder="ZZ.LL.AAAA" maxlength="10" required></div>
           <div><label for="exp">Experiență</label>
             <select id="exp" name="experienta" required>
               <option value="">Alege experiența</option>
@@ -1266,7 +1266,12 @@ footer .fl a:hover{color:var(--gold-2)}
       const jobTitle = document.getElementById('post').value.trim();
       const experience = document.getElementById('exp').value.trim();
       const message = document.getElementById('mesaj').value.trim();
-      const nastere = (document.getElementById('nastere')||{}).value || '';
+      const nastereScris = (document.getElementById('nastere')||{}).value || '';
+      const nastere = isoNastere(nastereScris);
+      if(nastereScris && !nastere){
+        if(note){ note.style.color='#ff9d9d'; note.textContent='Scrie data nașterii ca ZZ.LL.AAAA (de exemplu 04.09.2005).'; }
+        return;
+      }
       const oras = ((document.getElementById('oras')||{}).value||'').trim();
       const ultimJob = ((document.getElementById('ultim-job')||{}).value||'').trim();
       const langDe = (document.getElementById('lang-de')||{}).value || '';
@@ -2061,5 +2066,24 @@ html.wj-loading,html.wj-loading body{overflow:hidden!important}
 </script>
 <!-- ═══════════════ SFÂRȘIT STRAT CINEMATIC ═══════════════ -->
 
+<script>
+// Data nașterii se scrie de mână (ZZ.LL.AAAA): calendarul derulat 30 de ani
+// înapoi pe telefon era un chin. Punctele se pun singure; se salvează ISO (AAAA-LL-ZZ).
+function isoNastere(v){
+  var d=String(v||'').replace(/[^0-9]/g,''); if(d.length!==8) return '';
+  var zi=+d.slice(0,2), luna=+d.slice(2,4), an=+d.slice(4,8);
+  if(an<1900||an>2100||luna<1||luna>12||zi<1||zi>31) return '';
+  var t=new Date(Date.UTC(an,luna-1,zi)); if(t.getUTCDate()!==zi||t.getUTCMonth()!==luna-1) return '';
+  return an+'-'+('0'+luna).slice(-2)+'-'+('0'+zi).slice(-2);
+}
+(function(){
+  var el=document.getElementById('nastere'); if(!el) return;
+  el.addEventListener('input',function(){
+    var d=el.value.replace(/[^0-9]/g,'').slice(0,8); var out=d.slice(0,2);
+    if(d.length>2) out+='.'+d.slice(2,4); if(d.length>4) out+='.'+d.slice(4,8);
+    if(el.value!==out) el.value=out;
+  });
+})();
+</script>
 </body>
 </html>

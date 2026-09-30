@@ -221,7 +221,7 @@ module.exports = async (req, res) => {
       <label for="email">Email</label><input id="email" type="email" required placeholder="email@exemplu.com">
       <label for="post">Post dorit</label><input id="post" class="readonly-field" type="text" value="${esc(job.title)}" readonly>
       <div class="form-row">
-        <div><label for="nastere">Data nașterii</label><input id="nastere" type="date" required></div>
+        <div><label for="nastere">Data nașterii</label><input id="nastere" type="text" inputmode="numeric" autocomplete="bday" placeholder="ZZ.LL.AAAA" maxlength="10" required></div>
         <div><label for="exp">Experiență</label>
           <select id="exp" required><option value="">Alege experiența</option><option>Fără experiență</option><option>Sub 1 an</option><option>1-2 ani</option><option>2-5 ani</option><option>Peste 5 ani</option></select>
         </div>
@@ -286,6 +286,20 @@ module.exports = async (req, res) => {
       el.classList.add('open'); document.body.style.overflow='hidden';
     }
 
+    // Data nașterii scrisă de mână (ZZ.LL.AAAA), cu punctele puse singure; se trimite ISO.
+    function isoNastere(v){
+      var d=String(v||'').replace(/[^0-9]/g,''); if(d.length!==8) return '';
+      var zi=+d.slice(0,2), luna=+d.slice(2,4), an=+d.slice(4,8);
+      if(an<1900||an>2100||luna<1||luna>12||zi<1||zi>31) return '';
+      var t=new Date(Date.UTC(an,luna-1,zi)); if(t.getUTCDate()!==zi||t.getUTCMonth()!==luna-1) return '';
+      return an+'-'+('0'+luna).slice(-2)+'-'+('0'+zi).slice(-2);
+    }
+    var nasterEl=document.getElementById('nastere');
+    if(nasterEl) nasterEl.addEventListener('input',function(){
+      var d=nasterEl.value.replace(/[^0-9]/g,'').slice(0,8); var out=d.slice(0,2);
+      if(d.length>2) out+='.'+d.slice(2,4); if(d.length>4) out+='.'+d.slice(4,8);
+      if(nasterEl.value!==out) nasterEl.value=out;
+    });
     var form=document.getElementById('apply-form');
     if(!form) return;
     form.addEventListener('submit', async function(e){
@@ -299,7 +313,9 @@ module.exports = async (req, res) => {
       var email=document.getElementById('email').value.trim();
       var exp=document.getElementById('exp').value.trim();
       var message=document.getElementById('mesaj').value.trim();
-      var nastere=(document.getElementById('nastere')||{}).value||'';
+      var nastereScris=(document.getElementById('nastere')||{}).value||'';
+      var nastere=isoNastere(nastereScris);
+      if(nastereScris&&!nastere){ st.className='form-err'; st.textContent='Scrie data nașterii ca ZZ.LL.AAAA (de exemplu 04.09.2005).'; return; }
       var oras=((document.getElementById('oras')||{}).value||'').trim();
       var ultimJob=((document.getElementById('ultim-job')||{}).value||'').trim();
       var langDe=(document.getElementById('lang-de')||{}).value||'';
